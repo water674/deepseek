@@ -92,8 +92,22 @@
 
 
 
-*** 门控
+*** 
 
+## 门控
+
+### 计算思路
+
+计算每个token对每个专家的分数（可能有偏置）-> 分组路由 -> topk选取k个专家
+
+- 例子：
+
+  没有分组的路由 (n_expert_groups = 1)：输入token → 计算128个专家分数 → Top-10选择 → 使用10个专家
+  
+  有分组的路由 (n_expert_groups = 8, n_limited_groups = 2)：输入token → 计算128个专家分数 → 分成8组，每组16个专家 → 计算每组得分 (取组内前2个专家分数和) → Top-2选择 (选择得分最高的2个组) → 在选中的2个组(共32个专家)中做Top-10选择 → 使用10个专家
+
+
+  
 
 <details>
 <summary>Gate代码实现</summary>
@@ -165,6 +179,48 @@ class Gate(nn.Module):
         return weights.type_as(x), indices
 ```
 </details>
+
+
+
+
+## 专家
+- 每个专家都是llama的前馈网
+
+  
+
+
+## MOE
+
+- 将路由专家的结果与共享专家合并
+- 共享专家：
+  - 是MoE层中所有token都会经过的专家，与路由专家（需要门控选择）形成互补。
+
+<details>
+<summary>MOE代码实现</summary>
+
+```python
+class MoE(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 1. 路由专家计算 (选择性)
+        weights, indices = self.gate(x)  # 选择部分专家
+        y = torch.zeros_like(x)
+        
+        # 只计算被选中的路由专家
+        for i in selected_experts:
+            y += self.routed_experts[i](x) * weights[i]
+        
+        # 2. 共享专家计算 (所有token都经过)
+        z = self.shared_experts(x)  # 所有token都计算
+        
+        # 3. 合并输出
+        return y + z  # 路由专家输出 + 共享专家输出
+```
+</details>
+
+
+
+
+
 
 
 
