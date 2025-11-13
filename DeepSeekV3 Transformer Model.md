@@ -196,7 +196,7 @@ class Gate(nn.Module):
   - 是MoE层中所有token都会经过的专家，与路由专家（需要门控选择）形成互补。
 
 <details>
-<summary>MOE代码实现</summary>
+<summary>MOE逻辑实现(非完整代码)）</summary>
 
 ```python
 class MoE(nn.Module):
