@@ -227,23 +227,28 @@ class MoE(nn.Module):
 ### 原理
 
 当使用 LoRA 时，查询投影为
-\[
-Q = W_q^B \cdot \text{Norm}(W_q^A \cdot X)
-\]
 
-查询拆分为非位置部分和旋转位置部分：Q = [Q_{\text{nope}}; Q_{\text{rope}}]
-​键拆分为非位置部分和旋转位置部分：K = [K_{\text{nope}}; K_{\text{rope}}]
+$$
+Q = W_q^B \cdot \text{Norm}(W_q^A \cdot X)
+$$
+
+查询拆分为非位置部分和旋转位置部分： $Q = [Q_{\text{nope}}; Q_{\text{rope}}]$
+
+​键拆分为非位置部分和旋转位置部分： $K = [K_{\text{nope}}; K_{\text{rope}}]$
 
 注意力分数计算
-\[
-\text{scores} = \frac{1}{\sqrt{d_{qk}}} \left( Q_{\text{nope}} K_{\te
-\]
+
+$$
+\text{scores} = \frac{1}{\sqrt{d_{qk}}} ( Q_{\text{nope}} K_{\text{nope}}^T + Q_{\text{rope}} K_{\text{rope}}^T ) + \text{mask}
+$$
+
 ​
-输出：\text{output} = W_o \cdot (\text{softmax}(\text{scores}) \cdot V)
 
+输出：
 
-
-111111111111111111111111111111111111
+$$ 
+\text{output} = W_o \cdot (\text{softmax}(\text{scores}) \cdot V) 
+$$
 
 <details>
 <summary>MLA实现</summary>
