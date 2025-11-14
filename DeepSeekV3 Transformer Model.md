@@ -1,4 +1,4 @@
-[DeepSeek_V3原文链接](https://arxiv.org/pdf/2412.19437)
+[DeepSeek_V3原文链接](https://arxiv.org/pdf/2412.19437)    [DeepSeek_V3 Github](https://github.com/deepseek-ai/DeepSeek-V3)
 ```
                                     ┌─────────────────────────────────────────────────────────────────┐
                                     │                        DeepSeek-V3 Transformer                  │
