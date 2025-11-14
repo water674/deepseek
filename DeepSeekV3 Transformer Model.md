@@ -225,10 +225,28 @@ class MoE(nn.Module):
 
 
 ### 原理
-111
+
+当使用 LoRA 时，查询投影为
+\[
+Q = W_q^B \cdot \text{Norm}(W_q^A \cdot X)
+\]
+
+查询拆分为非位置部分和旋转位置部分：Q = [Q_{\text{nope}}; Q_{\text{rope}}]
+​键拆分为非位置部分和旋转位置部分：K = [K_{\text{nope}}; K_{\text{rope}}]
+
+注意力分数计算
+\[
+\text{scores} = \frac{1}{\sqrt{d_{qk}}} \left( Q_{\text{nope}} K_{\te
+\]
+​
+输出：\text{output} = W_o \cdot (\text{softmax}(\text{scores}) \cdot V)
+
+
+
+111111111111111111111111111111111111
 
 <details>
-<summary>ParallelEmbedding实现</summary>
+<summary>MLA实现</summary>
 
 ```python
 class MLA(nn.Module):
@@ -248,37 +266,6 @@ class MLA(nn.Module):
         softmax_scale (float): Scaling factor for softmax in attention computation.
     """
     def __init__(self, args: ModelArgs):
-        super().__init__()
-        self.dim = args.dim
-        self.n_heads = args.n_heads
-        self.n_local_heads = args.n_heads // world_size
-        self.q_lora_rank = args.q_lora_rank
-        self.kv_lora_rank = args.kv_lora_rank
-        self.qk_nope_head_dim = args.qk_nope_head_dim
-        self.qk_rope_head_dim = args.qk_rope_head_dim
-        self.qk_head_dim = args.qk_nope_head_dim + args.qk_rope_head_dim
-        self.v_head_dim = args.v_head_dim
-
-        if self.q_lora_rank == 0:
-            self.wq = ColumnParallelLinear(self.dim, self.n_heads * self.qk_head_dim)
-        else:
-            self.wq_a = Linear(self.dim, self.q_lora_rank)
-            self.q_norm = RMSNorm(self.q_lora_rank)
-            self.wq_b = ColumnParallelLinear(self.q_lora_rank, self.n_heads * self.qk_head_dim)
-        self.wkv_a = Linear(self.dim, self.kv_lora_rank + self.qk_rope_head_dim)
-        self.kv_norm = RMSNorm(self.kv_lora_rank)
-        self.wkv_b = ColumnParallelLinear(self.kv_lora_rank, self.n_heads * (self.qk_nope_head_dim + self.v_head_dim))
-        self.wo = RowParallelLinear(self.n_heads * self.v_head_dim, self.dim)
-        self.softmax_scale = self.qk_head_dim ** -0.5
-        if args.max_seq_len > args.original_seq_len:
-            mscale = 0.1 * args.mscale * math.log(args.rope_factor) + 1.0
-            self.softmax_scale = self.softmax_scale * mscale * mscale
-
-        if attn_impl == "naive":
-            self.register_buffer("k_cache", torch.zeros(args.max_batch_size, args.max_seq_len, self.n_local_heads, self.qk_head_dim), persistent=False)
-            self.register_buffer("v_cache", torch.zeros(args.max_batch_size, args.max_seq_len, self.n_local_heads, self.v_head_dim), persistent=False)
-        else:
-            self.register_buffer("kv_cache", torch.zeros(args.max_batch_size, args.max_seq_len, self.kv_lora_rank), persistent=False)
             self.register_buffer("pe_cache", torch.zeros(args.max_batch_size, args.max_seq_len, self.qk_rope_head_dim), persistent=False)
 
     def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]):
@@ -333,6 +320,7 @@ class MLA(nn.Module):
             x = torch.einsum("bshc,hdc->bshd", x, wkv_b[:, -self.v_head_dim:])
         x = self.wo(x.flatten(2))
         return x
+
 ```
 </details>
 
